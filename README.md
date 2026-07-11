@@ -5,7 +5,8 @@ An AI-powered DevOps assistant built with **LangChain** and **Ollama** that answ
 ## Architecture
 
 <p align="center">
-  <img src="docs/architecture.png" alt="Architecture">
+  <img width="1730" height="909" alt="Ai-Agent-Architecture" src="https://github.com/user-attachments/assets/96770c70-23e0-4c2a-b7ec-03ba569c24ad" />
+
 </p>
 
 ---
@@ -76,11 +77,3 @@ python agent.py
 
 > List all running Docker containers
 ```
-
----
-
-## Demo
-
-<p align="center">
-  <img src="docs/demo.gif" alt="Demo">
-</p>
