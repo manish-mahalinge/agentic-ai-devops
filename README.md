@@ -1,103 +1,188 @@
-# Agentic AI for DevOps — Masterclass
+# Agentic AI for DevOps
 
-A simple LangChain agent that uses a local LLM (via [Ollama](https://ollama.com)) to answer Kubernetes and Docker questions by calling real `kubectl` and `docker` commands as tools.
+A simple AI agent that answers Docker and Kubernetes questions by executing real system commands.
 
-Built as part of the **TrainWithShubham** masterclass.
+The project uses **LangChain** for tool calling and **Ollama** to run a local LLM. Instead of hallucinating infrastructure data, the agent retrieves live information using `docker` and `kubectl`.
 
-## What it does
+---
 
-The agent is wired up with two tools:
+## Architecture
 
-- `get_pods` — runs `kubectl get pods -A` and returns the output
-- `get_docker_containers` — runs `docker ps` and returns the output
+<p align="center">
+  <img src="docs/architecture.png" alt="Architecture" width="900">
+</p>
 
-You ask a question in natural language; the LLM decides which tool to call and answers based on the live cluster / Docker state.
+---
 
-## Key concepts (30-second glossary)
+## Features
 
-| Term | In one line |
-|------|-------------|
-| **Agent** | An LLM + tools + a loop that lets the model decide *which* tool to call. |
-| **Tool** | A plain Python function the LLM can call. Its **docstring** is what the model reads to decide when to use it — so docstrings matter. |
-| **LLM** | The model doing the reasoning. Here `qwen3-coder:30b`, running locally via Ollama. |
-| **Ollama** | Runs open models on your machine and exposes an API that LangChain talks to. |
-| **System prompt** | Standing instructions that define the agent's role and rules. |
-| **`temperature`** | Randomness of the output. `0` = deterministic — best for tool use. |
-| **`num_ctx`** | Context window size (in tokens). Too small → tool output gets **silently truncated**. |
+- Query running Docker containers
+- Query Kubernetes pods
+- Local LLM using Ollama
+- LangChain tool calling
+- No external API required
+- Runs completely on your machine
 
-## How the agent works
+---
 
+## Tech Stack
+
+- Python
+- LangChain
+- Ollama
+- Docker
+- Kubernetes
+- kubectl
+
+---
+
+## Project Structure
+
+```text
+.
+├── agent.py
+├── requirements.txt
+├── README.md
+└── docs
+    └── architecture.png
 ```
-  You ask a question
-        │
-        ▼
-  LLM reads each tool's docstring  ──► decides which tool fits
-        │
-        ▼
-  Tool runs the REAL command (kubectl / docker)
-        │
-        ▼
-  LLM reads the live output ──► writes the answer
-```
 
-The LLM never runs commands itself — it only *chooses* a tool. The Python function runs the actual command and hands the output back to the model.
+---
 
 ## Prerequisites
 
 - Python 3.10+
-- [Ollama](https://ollama.com) running locally with the model pulled
-- `kubectl` configured against a cluster (for pod queries)
-- `docker` running locally (for container queries)
+- Docker
+- kubectl
+- Ollama
 
-## Usage — one-liners
+---
+
+## Installation
+
+Clone the repository
 
 ```bash
-ollama serve                    # start Ollama (if not already running)
-ollama pull qwen3-coder:30b     # get the model (~18GB, one time)
-ollama list                     # see installed models
+git clone https://github.com/<your-username>/agentic-ai-devops.git
 
-python3 -m venv venv            # create a virtualenv
+cd agentic-ai-devops
+```
+
+Create a virtual environment
+
+```bash
+python -m venv venv
+```
+
+Activate it
+
+**Windows**
+
+```bash
+venv\Scripts\activate
+```
+
+**Linux/macOS**
+
+```bash
 source venv/bin/activate
-pip install -r requirements.txt # install LangChain + Ollama bindings
-
-python agent.py                 # run the agent
 ```
 
-Example prompts:
+Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Pull a Model
+
+Start Ollama
+
+```bash
+ollama serve
+```
+
+Download the model
+
+```bash
+ollama pull qwen3-coder:30b
+```
+
+You can also use smaller models such as
+
+- qwen3:8b
+- qwen2.5:7b
+- llama3.2
+
+Just update the model name inside `agent.py`.
+
+---
+
+## Run
+
+```bash
+python agent.py
+```
+
+---
+
+## Example
 
 ```
-Ask your Kubernetes Agent a Question: > show me all pods
-Ask your Kubernetes Agent a Question: > what containers are running on docker?
+Ask your Kubernetes Agent a Question:
+
+> show me all pods
+
+> how many docker containers are running?
+
+> list all running containers
+
+> show pods from all namespaces
 ```
 
-## Choosing a model
+---
 
-`qwen3-coder:30b` is the default: it's a **Mixture-of-Experts** model (~3B active params, so it stays fast) that's purpose-built for agentic tool-calling — it reliably picks the right tool and parses `kubectl`/`docker` output. Swapping models is a one-line change to the `model=` argument in `agent.py` (plus an `ollama pull`):
+## Available Tools
 
-| Model | Good for | Notes |
-|-------|----------|-------|
-| `qwen3-coder:30b` | **Default** — best tool-calling | ~18GB, needs decent RAM |
-| `qwen3:8b` | Balanced, smaller footprint | ~5GB, solid tool-caller |
-| `llama3.2` | Low RAM / no big download | ~2GB, lighter answers |
+### Docker
 
-## Why `num_ctx` matters
-
-Ollama defaults to a small context window (a couple thousand tokens). On a real cluster, `kubectl get pods -A` can return far more than that — and anything past the window is **silently dropped before the model ever sees it**, so the agent answers on partial data. Setting `num_ctx=8192` (or higher for large clusters) in `agent.py` gives the model room to read the full tool output.
-
-## Troubleshooting
-
-| Symptom | Likely cause & fix |
-|---------|--------------------|
-| `Connection refused` / no response | Ollama isn't running → `ollama serve` |
-| `model 'qwen3-coder:30b' not found` | Model not pulled → `ollama pull qwen3-coder:30b` |
-| Agent says pods/containers are empty | `kubectl` or `docker` not configured/running — the tool returns nothing (or its error). Check `kubectl get pods -A` and `docker ps` manually |
-| `ImportError: cannot import name 'create_agent'` | You're on old LangChain. This uses the **1.x** API (`from langchain.agents import create_agent`) → `pip install -U -r requirements.txt` |
-
-## Project layout
-
+```bash
+docker ps
 ```
-.
-├── agent.py            # LangChain agent + tools + entry point
-├── requirements.txt    # Python dependencies (LangChain 1.x)
-└── README.md
+
+### Kubernetes
+
+```bash
+kubectl get pods -A
 ```
+
+The LLM decides which tool to execute based on the user's question.
+
+---
+
+## Repository Layout
+
+```text
+agent.py
+requirements.txt
+README.md
+```
+
+---
+
+## Future Improvements
+
+- Docker images
+- Docker logs
+- Kubernetes deployments
+- Kubernetes services
+- Helm support
+- Jenkins integration
+- Terraform integration
+- AWS support
+
+---
+
+If you have any suggestions or improvements, feel free to open an issue or submit a pull request.
